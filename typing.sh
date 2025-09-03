@@ -62,6 +62,10 @@ print_status(){
 }
 
 typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出して実行）
+  # 使い方: typingGame [-f WORDS_FILE] [-c NUM] [-r]
+  #   -f: 読み込む単語ファイル（1行1語）。CONTENT より優先。
+  #   -c: 出題数（数値）。指定がなければ全件。
+  #   -r: 出題順をシャッフル。
   # 以前のシェル状態を退避
   local __prev_ifs="$IFS"
   local __prev_set
@@ -71,6 +75,20 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   __trap_int=$(trap -p INT || true)
   __trap_term=$(trap -p TERM || true)
 
+  # 引数パース
+  local opt file_override="" questions_limit="" cli_shuffle=0
+  local OPTIND=1
+  while getopts ":f:c:r" opt; do
+    case "$opt" in
+      f) file_override="$OPTARG" ;;
+      c) questions_limit="$OPTARG" ;;
+      r) cli_shuffle=1 ;;
+      :) echo "オプション -$OPTARG には引数が必要です" >&2; return 2 ;;
+      \?) echo "不正なオプション: -$OPTARG" >&2; return 2 ;;
+    esac
+  done
+  shift $((OPTIND-1))
+
   # 安全設定（関数作用域内に限定）
   set -Eeuo pipefail
   IFS=$'\n\t'
@@ -79,9 +97,16 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   trap 'printf "\033[m\033[?25h\n"' EXIT
   trap 'printf "\033[m\033[?25h\n"; clear' INT TERM
 
-  # 出題の準備（CONTENT 優先。なければ WORDS_FILE またはデフォルト配列）
+  # 出題の準備（優先度: -f > CONTENT > WORDS_FILE/assets/words.txt > デフォルト配列）
   local -a content=(herry pear banana grape peah apple)
-  if [[ -n ${CONTENT-} ]]; then
+  if [[ -n "$file_override" ]]; then
+    if [[ -f "$file_override" ]]; then
+      mapfile -t content < <(sed -e 's/\r$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$file_override")
+    else
+      echo "指定ファイルがありません: $file_override" >&2
+      return 2
+    fi
+  elif [[ -n ${CONTENT-} ]]; then
     IFS=' ' read -r -a content <<< "$CONTENT"
   else
     local WORDS_PATH=${WORDS_FILE-assets/words.txt}
@@ -99,9 +124,22 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   START_SECONDS=$SECONDS
   for w in "${content[@]}"; do TOTAL_TARGET=$((TOTAL_TARGET + ${#w})); done
 
-  # 任意: シャッフル
-  if [[ ${SHUFFLE-} == 1 ]] && command -v shuf >/dev/null 2>&1; then
+  # 任意: シャッフル（-r または SHUFFLE=1）
+  if { [[ $cli_shuffle -eq 1 ]] || [[ ${SHUFFLE-} == 1 ]]; } \
+     && command -v shuf >/dev/null 2>&1; then
     mapfile -t content < <(printf '%s\n' "${content[@]}" | shuf)
+  fi
+
+  # 任意: 出題数を制限（-c NUM）
+  if [[ -n "$questions_limit" ]]; then
+    if [[ "$questions_limit" =~ ^[0-9]+$ ]] && [[ "$questions_limit" -gt 0 ]]; then
+      if (( ${#content[@]} > questions_limit )); then
+        content=("${content[@]:0:questions_limit}")
+      fi
+    else
+      echo "-c は正の整数を指定してください: $questions_limit" >&2
+      return 2
+    fi
   fi
 
   printf "${HIDE_CURSOR}" >/dev/null 2>&1 || true
@@ -130,5 +168,5 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
 
 # スクリプトとして直接実行された場合のみゲームを起動（source された場合は関数定義のみ）
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
-  typingGame
+  typingGame "$@"
 fi
