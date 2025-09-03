@@ -1,6 +1,6 @@
 # bash_keytyping
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/akasataikisiti/bash_typingGame/actions/workflows/ci.yml/badge.svg)](https://github.com/akasataikisiti/bash_typingGame/actions/workflows/ci.yml)
 
 ターミナルで動く Bash 製タイピングゲーム。進捗/統計表示、外部単語リスト、シャッフル、関数実行、CI/テストに対応。
 
