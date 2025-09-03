@@ -1,28 +1,9 @@
 #!/bin/bash # シバン: Bash で実行することを指定
-set -Eeuo pipefail # エラー即時終了・未定義変数エラー・パイプ失敗検出
-IFS=$'\n\t' # IFS を安全な設定に（スペースは区切らない）
-content=(herry pear banana grape peah apple) # 出題する単語の配列（各要素を分離）
-# テストやカスタム出題用に CONTENT 環境変数で上書き可能（スペース区切り）
-if [[ -n ${CONTENT-} ]]; then # CONTENT が設定されていれば
-  IFS=' ' read -r -a content <<< "$CONTENT" # スペースで分割して配列化
-fi
-
-# 単語リスト外部化: WORDS_FILE（未指定なら assets/words.txt）から1行1語で読み込み
-if [[ -z ${CONTENT-} ]]; then # CONTENT 指定がない場合のみファイル入力を有効化
-  WORDS_PATH=${WORDS_FILE-assets/words.txt}
-  if [[ -f "$WORDS_PATH" ]]; then
-    # 空行とコメント(#～)を除去し、CRLF を正規化
-    mapfile -t content < <(sed -e 's/\r$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$WORDS_PATH")
-  fi
-fi
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
 readonly SHOW_CURSOR="${ESC}[?25h" # カーソル表示
 readonly HIDE_CURSOR="${ESC}[?25l" # カーソル非表示
-# EXIT 時は色とカーソルのみ復帰（画面はクリアしない）。INT/TERM は色/カーソル復帰後に画面クリア。
-trap 'printf "\033[m\033[?25h\n"' EXIT
-trap 'printf "\033[m\033[?25h\n"; clear' INT TERM
 
-typingGame(){ # 1単語分のタイピングゲームを実行する関数
+typing_play_word(){ # 1単語分のタイピングを処理する関数（内部用）
   local element typed n a typed_element expected_msg # 関数内変数をローカル化
   element="$1" # 残りの未入力部分（先頭から削っていく）
   typed="$element" # 元の完全な単語（入力済み部分計算用）
@@ -64,20 +45,7 @@ typingGame(){ # 1単語分のタイピングゲームを実行する関数
   done # while ループ終了
 } # 関数終了
 
-# 進捗/統計のグローバル変数
-TOTAL_CORRECT=0 # 総正打数
-KEYSTROKES=0 # 総キータイプ数（誤入力含む）
-TOTAL_TARGET=0 # 総ターゲット文字数
-WORD_COUNT=${#content[@]} # 総単語数
-WORDS_DONE=0 # 完了した単語数
-START_SECONDS=$SECONDS # 開始時間（秒）
-
-# 総ターゲット文字数を算出
-for w in "${content[@]}"; do
-  TOTAL_TARGET=$((TOTAL_TARGET + ${#w}))
-done
-
-# 進捗表示関数
+ # 進捗表示関数
 print_status(){
   local elapsed=$((SECONDS - START_SECONDS))
   local acc=0
@@ -93,23 +61,74 @@ print_status(){
     "$WORDS_DONE" "$WORD_COUNT" "$TOTAL_CORRECT" "$TOTAL_TARGET" "$KEYSTROKES" "$acc" "$elapsed" "$wpm"
 }
 
-# 任意: シャッフル（SHUFFLE=1 のとき）
-if [[ ${SHUFFLE-} == 1 ]]; then
-  # shuf があれば利用
-  if command -v shuf >/dev/null 2>&1; then
+typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出して実行）
+  # 以前のシェル状態を退避
+  local __prev_ifs="$IFS"
+  local __prev_set
+  __prev_set=$(set +o) # 復元用に現在の set 状態を取得
+  local __trap_exit __trap_int __trap_term
+  __trap_exit=$(trap -p EXIT || true)
+  __trap_int=$(trap -p INT || true)
+  __trap_term=$(trap -p TERM || true)
+
+  # 安全設定（関数作用域内に限定）
+  set -Eeuo pipefail
+  IFS=$'\n\t'
+
+  # 退出時の後始末: 色/カーソル復帰（画面はクリアしない）
+  trap 'printf "\033[m\033[?25h\n"' EXIT
+  trap 'printf "\033[m\033[?25h\n"; clear' INT TERM
+
+  # 出題の準備（CONTENT 優先。なければ WORDS_FILE またはデフォルト配列）
+  local -a content=(herry pear banana grape peah apple)
+  if [[ -n ${CONTENT-} ]]; then
+    IFS=' ' read -r -a content <<< "$CONTENT"
+  else
+    local WORDS_PATH=${WORDS_FILE-assets/words.txt}
+    if [[ -f "$WORDS_PATH" ]]; then
+      mapfile -t content < <(sed -e 's/\r$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$WORDS_PATH")
+    fi
+  fi
+
+  # 統計用変数（関数内での動的スコープ。下位関数から参照/更新される）
+  TOTAL_CORRECT=0
+  KEYSTROKES=0
+  TOTAL_TARGET=0
+  WORD_COUNT=${#content[@]}
+  WORDS_DONE=0
+  START_SECONDS=$SECONDS
+  for w in "${content[@]}"; do TOTAL_TARGET=$((TOTAL_TARGET + ${#w})); done
+
+  # 任意: シャッフル
+  if [[ ${SHUFFLE-} == 1 ]] && command -v shuf >/dev/null 2>&1; then
     mapfile -t content < <(printf '%s\n' "${content[@]}" | shuf)
   fi
-fi
 
-for value in ${content[@]}; do # 配列内の各単語に対してゲームを実行
-  typingGame "$value" # 単語を引数に関数呼び出し
-  WORDS_DONE=$((WORDS_DONE + 1)) # 単語完了をカウント
-  clear
+  printf "${HIDE_CURSOR}" >/dev/null 2>&1 || true
+
+  # メインループ
+  local value
+  for value in ${content[@]}; do
+    typing_play_word "$value"
+    WORDS_DONE=$((WORDS_DONE + 1))
+    clear
+    print_status
+  done
+
+  # 終了サマリ
+  printf "${SHOW_CURSOR}" || true
+  printf "${ESC}[32m完了しました！${ESC}[m\n"
   print_status
-done # ループ終了
 
-# 終了サマリ
-printf "${HIDE_CURSOR}" >/dev/null 2>&1 # 念のため非表示状態に（既定動作）
-printf "${SHOW_CURSOR}" # 終了時にカーソルを表示
-printf "${ESC}[32m完了しました！${ESC}[m\n"
-print_status
+  # トラップ/シェル状態の復元
+  if [[ -n "$__trap_exit" ]]; then eval "$__trap_exit"; else trap - EXIT; fi
+  if [[ -n "$__trap_int" ]]; then eval "$__trap_int"; else trap - INT; fi
+  if [[ -n "$__trap_term" ]]; then eval "$__trap_term"; else trap - TERM; fi
+  eval "$__prev_set"
+  IFS="$__prev_ifs"
+} # typingGame 終了
+
+# スクリプトとして直接実行された場合のみゲームを起動（source された場合は関数定義のみ）
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  typingGame
+fi
