@@ -1,4 +1,4 @@
-#!/bin/bash # シバン: Bash で実行することを指定
+#!/bin/bash 
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
 readonly SHOW_CURSOR="${ESC}[?25h" # カーソル表示
 readonly HIDE_CURSOR="${ESC}[?25l" # カーソル非表示
