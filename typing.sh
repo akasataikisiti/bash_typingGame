@@ -1,7 +1,15 @@
-#!/bin/bash 
+#!/bin/bash
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
 readonly SHOW_CURSOR="${ESC}[?25h" # カーソル表示
 readonly HIDE_CURSOR="${ESC}[?25l" # カーソル非表示
+readonly RESET="${ESC}[m"
+readonly BLUE="${ESC}[34m"
+readonly YELLOW="${ESC}[33m"
+readonly RED="${ESC}[31m"
+readonly CYAN="${ESC}[36m"
+readonly GREEN="${ESC}[32m"
+readonly CLEARLINE="\r${ESC}[2K"
+readonly UP3="${ESC}[3F"
 
 # 非TTY環境（CI/Batsなど）でも安全に動作させるUIユーティリティ
 is_tty() { [[ -t 1 ]]; }
@@ -28,8 +36,8 @@ typing_play_word(){ # 1単語分のタイピングを処理する関数（内部
   # 初期表示（3行確保: 入力行 / メッセージ / ステータス）
   typed_element=""
   expected_msg=""
-  printf "\r${ESC}[2K${ESC}[34m%s${ESC}[m${ESC}[33m%s${ESC}[m\n" "$typed_element" "$element"
-  printf "\r${ESC}[2K\n" # メッセージ行を空で描画
+  printf "%s%s%s%s%s\n" "${CLEARLINE}${BLUE}" "$typed_element" "${RESET}${YELLOW}" "$element" "$RESET"
+  printf "%s\n" "$CLEARLINE" # メッセージ行を空で描画
   print_status # ステータス行
 
   while true; do # 入力が終わるまで繰り返す無限ループ
@@ -51,12 +59,12 @@ typing_play_word(){ # 1単語分のタイピングを処理する関数（内部
       expected_msg="期待: ${element:0:1}" # 期待文字を記録
     fi
     # カーソルを3行上に戻して3行を部分再描画（入力行/メッセージ/ステータス）
-    printf "${ESC}[3F" # 3行上へ（非TTYでも無害）
-    printf "\r${ESC}[2K${ESC}[34m%s${ESC}[m${ESC}[33m%s${ESC}[m\n" "$typed_element" "$element"
+    printf "%s" "$UP3" # 3行上へ（非TTYでも無害）
+    printf "%s%s%s%s%s\n" "${CLEARLINE}${BLUE}" "$typed_element" "${RESET}${YELLOW}" "$element" "$RESET"
     if [[ -n "$expected_msg" ]]; then
-      printf "\r${ESC}[2K${ESC}[31m%s${ESC}[m\n" "$expected_msg"
+      printf "%s%s%s\n" "$CLEARLINE" "${RED}${expected_msg}" "$RESET"
     else
-      printf "\r${ESC}[2K\n"
+      printf "%s\n" "$CLEARLINE"
     fi
     print_status # 進捗表示
   done # while ループ終了
@@ -74,8 +82,10 @@ print_status(){
     # (correct_chars/5) / (elapsed/60) = correct_chars * 12 / elapsed
     wpm=$(( TOTAL_CORRECT * 12 / elapsed ))
   fi
-  printf "\r${ESC}[2K${ESC}[36m単語: %d/%d | 文字: %d/%d | 打鍵: %d | 正確性: %d%% | 経過: %ds | WPM: %d${ESC}[m\n" \
-    "$WORDS_DONE" "$WORD_COUNT" "$TOTAL_CORRECT" "$TOTAL_TARGET" "$KEYSTROKES" "$acc" "$elapsed" "$wpm"
+  printf "%s%s単語: %d/%d | 文字: %d/%d | 打鍵: %d | 正確性: %d%% | 経過: %ds | WPM: %d%s\n" \
+    "$CLEARLINE" "$CYAN" \
+    "$WORDS_DONE" "$WORD_COUNT" "$TOTAL_CORRECT" "$TOTAL_TARGET" "$KEYSTROKES" "$acc" "$elapsed" "$wpm" \
+    "$RESET"
 }
 
 typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出して実行）
@@ -83,14 +93,8 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   #   -f: 読み込む単語ファイル（1行1語）。CONTENT より優先。
   #   -c: 出題数（数値）。指定がなければ全件。
   #   -r: 出題順をシャッフル。
-  # 以前のシェル状態を退避
+  # 以前の IFS を退避
   local __prev_ifs="$IFS"
-  local __prev_set
-  __prev_set=$(set +o) # 復元用に現在の set 状態を取得
-  local __trap_exit __trap_int __trap_term
-  __trap_exit=$(trap -p EXIT || true)
-  __trap_int=$(trap -p INT || true)
-  __trap_term=$(trap -p TERM || true)
 
   # 引数パース
   local opt file_override="" questions_limit="" cli_shuffle=0
@@ -111,7 +115,7 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   IFS=$'\n\t'
 
   # 退出時の後始末: 色/カーソル復帰（画面はクリアしない）
-  trap 'printf "\033[m\033[?25h\n"' EXIT
+  trap 'printf "%s\n" "${RESET}${SHOW_CURSOR}"' EXIT
   # Ctrl+C で中断
   ABORT=0
   on_signal(){ ABORT=1; }
@@ -129,7 +133,7 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   elif [[ -n ${CONTENT-} ]]; then
     IFS=' ' read -r -a content <<< "$CONTENT"
   else
-    local WORDS_PATH=${WORDS_FILE-assets/words.txt}
+    local WORDS_PATH="${WORDS_FILE-assets/words.txt}"
     if [[ -f "$WORDS_PATH" ]]; then
       mapfile -t content < <(sed -e 's/\r$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$WORDS_PATH")
     fi
@@ -166,7 +170,7 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
 
   # メインループ
   local value
-  for value in ${content[@]}; do
+  for value in "${content[@]}"; do
     typing_play_word "$value" || {
       # 中断時は以降をスキップ
       if [[ ${ABORT:-0} -eq 1 ]]; then break; fi
@@ -179,17 +183,14 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   # 終了サマリ
   ui_show_cursor
   if [[ ${ABORT:-0} -eq 1 ]]; then
-    printf "${ESC}[33m中断しました（Ctrl+C）${ESC}[m\n"
+    printf "%s中断しました（Ctrl+C）%s\n" "$YELLOW" "$RESET"
   else
-    printf "${ESC}[32m完了しました！${ESC}[m\n"
+    printf "%s完了しました！%s\n" "$GREEN" "$RESET"
   fi
   print_status
 
   # トラップ/シェル状態の復元
-  if [[ -n "$__trap_exit" ]]; then eval "$__trap_exit"; else trap - EXIT; fi
-  if [[ -n "$__trap_int" ]]; then eval "$__trap_int"; else trap - INT; fi
-  if [[ -n "$__trap_term" ]]; then eval "$__trap_term"; else trap - TERM; fi
-  eval "$__prev_set"
+  trap - EXIT INT TERM
   IFS="$__prev_ifs"
 } # typingGame 終了
 
