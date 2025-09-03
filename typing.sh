@@ -17,6 +17,7 @@ typing_play_word(){ # 1単語分のタイピングを処理する関数（内部
   print_status # ステータス行
 
   while true; do # 入力が終わるまで繰り返す無限ループ
+    if [[ ${ABORT:-0} -eq 1 ]]; then return 130; fi # 中断フラグで即終了
     if [[ ${#element} -eq 0 ]]; then # 残り文字数が0なら
       break # ループを抜ける（単語入力完了）
     fi
@@ -95,7 +96,10 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
 
   # 退出時の後始末: 色/カーソル復帰（画面はクリアしない）
   trap 'printf "\033[m\033[?25h\n"' EXIT
-  trap 'printf "\033[m\033[?25h\n"; clear' INT TERM
+  # Ctrl+C で中断
+  ABORT=0
+  on_signal(){ ABORT=1; }
+  trap on_signal INT TERM
 
   # 出題の準備（優先度: -f > CONTENT > WORDS_FILE/assets/words.txt > デフォルト配列）
   local -a content=(herry pear banana grape peah apple)
@@ -147,7 +151,10 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   # メインループ
   local value
   for value in ${content[@]}; do
-    typing_play_word "$value"
+    typing_play_word "$value" || {
+      # 中断時は以降をスキップ
+      if [[ ${ABORT:-0} -eq 1 ]]; then break; fi
+    }
     WORDS_DONE=$((WORDS_DONE + 1))
     clear
     print_status
@@ -155,7 +162,11 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
 
   # 終了サマリ
   printf "${SHOW_CURSOR}" || true
-  printf "${ESC}[32m完了しました！${ESC}[m\n"
+  if [[ ${ABORT:-0} -eq 1 ]]; then
+    printf "${ESC}[33m中断しました（Ctrl+C）${ESC}[m\n"
+  else
+    printf "${ESC}[32m完了しました！${ESC}[m\n"
+  fi
   print_status
 
   # トラップ/シェル状態の復元
