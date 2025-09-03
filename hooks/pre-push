@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+# Git pre-push hook
+# - Lint: shellcheck (存在すれば必須)
+# - Test: Docker + bats（存在すれば必須）
+# - Format: shfmt -d は情報表示のみ（失敗にしない）
+#
+# スキップ: SKIP_PRE_PUSH=1 git push
+
+main() {
+  # pre-push は引数と標準入力を受け取るが、今回は無視
+  #   $1: remote name, $2: remote URL
+  #   stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
+
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel)
+  cd "$repo_root"
+
+  [[ ${SKIP_PRE_PUSH:-} == 1 ]] && exit 0
+
+  local fail=0
+
+  echo "[pre-push] lint/format/test を実行します..."
+
+  if command -v shellcheck >/dev/null 2>&1; then
+    echo "[pre-push] shellcheck"
+    shellcheck typing.sh || fail=1
+  else
+    echo "[pre-push] shellcheck 未インストール: スキップ"
+  fi
+
+  if command -v shfmt >/dev/null 2>&1; then
+    echo "[pre-push] shfmt -d (情報のみ)"
+    if ! out=$(shfmt -i 2 -ci -d typing.sh 2>&1); then
+      echo "[pre-push] shfmt 実行エラー: "$out" (情報のみ)"
+    elif [[ -n "$out" ]]; then
+      echo "[pre-push] shfmt 差分:\n$out"
+    fi
+  else
+    echo "[pre-push] shfmt 未インストール: スキップ"
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    echo "[pre-push] テスト (Docker + bats)"
+    ./scripts/test-docker.sh -r tests || fail=1
+  else
+    echo "[pre-push] docker 未インストール: テストスキップ"
+  fi
+
+  if [[ $fail -ne 0 ]]; then
+    echo "[pre-push] チェックに失敗しました。push を中断します。" >&2
+    exit 1
+  fi
+
+  echo "[pre-push] OK"
+}
+
+main "$@"
+
