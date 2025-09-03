@@ -74,6 +74,14 @@ print_status(){
     "$WORDS_DONE" "$WORD_COUNT" "$TOTAL_CORRECT" "$TOTAL_TARGET" "$KEYSTROKES" "$acc" "$elapsed" "$wpm"
 }
 
+# 任意: シャッフル（SHUFFLE=1 のとき）
+if [[ ${SHUFFLE-} == 1 ]]; then
+  # shuf があれば利用
+  if command -v shuf >/dev/null 2>&1; then
+    mapfile -t content < <(printf '%s\n' "${content[@]}" | shuf)
+  fi
+fi
+
 for value in ${content[@]}; do # 配列内の各単語に対してゲームを実行
   typingGame "$value" # 単語を引数に関数呼び出し
   WORDS_DONE=$((WORDS_DONE + 1)) # 単語完了をカウント
