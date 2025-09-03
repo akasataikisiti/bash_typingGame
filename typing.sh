@@ -16,7 +16,9 @@ if [[ -z ${CONTENT-} ]]; then # CONTENT 指定がない場合のみファイル�
   fi
 fi
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
-trap 'printf "${ESC}[m\n"; clear' INT TERM EXIT # 異常終了時も色をリセットして画面を整える
+# EXIT 時は色だけリセット（画面はクリアしない）。INT/TERM は色リセット+画面クリア。
+trap 'printf "${ESC}[m\n"' EXIT
+trap 'printf "${ESC}[m\n"; clear' INT TERM
 
 typingGame(){ # 1単語分のタイピングゲームを実行する関数
   local element typed n a typed_element # 関数内変数をローカル化
