@@ -11,7 +11,7 @@ typingGame(){ # 1単語分のタイピングゲームを実行する関数
   typed="$element" # 元の完全な単語（入力済み部分計算用）
   n=0 # 正しく入力できた文字数のカウンタ
   clear # 画面をクリア
-  echo "${ESC}[33m$element${ESC}[m" # 残りの単語を黄色で表示
+  printf "${ESC}[33m%s${ESC}[m\n" "$element" # 残りの単語を黄色で表示
 
   while true; do # 入力が終わるまで繰り返す無限ループ
     if [[ ${#element} -eq 0 ]]; then # 残り文字数が0なら
@@ -23,8 +23,8 @@ typingGame(){ # 1単語分のタイピングゲームを実行する関数
       n=$((n + 1)) # 正打数をインクリメント
       typed_element="${typed:0:n}" # 入力済み部分（先頭n文字）を取得
       element="${element:1}" # 残り部分を先頭1文字削除
-      echo -n "${ESC}[34m$typed_element${ESC}[m" # 入力済み部分を青で表示（改行なし）
-      echo -n -e "${ESC}[33m$element\n${ESC}[m" # 残り部分を黄色で表示し改行、色リセット
+      printf "${ESC}[34m%s${ESC}[m" "$typed_element" # 入力済み部分を青で表示（改行なし）
+      printf "${ESC}[33m%s${ESC}[m\n" "$element" # 残り部分を黄色で表示し改行、色リセット
     fi
   done # while ループ終了
 } # 関数終了
