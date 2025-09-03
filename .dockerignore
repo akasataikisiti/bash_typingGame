@@ -1,0 +1,15 @@
+.git
+.codex
+*.swp
+*.swo
+*.tmp
+*.log
+node_modules
+dist
+build
+coverage
+venv
+__pycache__
+tmp
+.DS_Store
+

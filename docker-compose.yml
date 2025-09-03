@@ -1,0 +1,7 @@
+services:
+  test:
+    image: bats/bats:latest
+    working_dir: /work
+    volumes:
+      - ./:/work
+    command: ["-r", "tests"]
