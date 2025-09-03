@@ -3,6 +3,7 @@ set -Eeuo pipefail # エラー即時終了・未定義変数エラー・パイ�
 IFS=$'\n\t' # IFS を安全な設定に（スペースは区切らない）
 content=(herry pear banana grape peah apple) # 出題する単語の配列（各要素を分離）
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
+trap 'printf "${ESC}[m\n"; clear' INT TERM EXIT # 異常終了時も色をリセットして画面を整える
 
 typingGame(){ # 1単語分のタイピングゲームを実行する関数
   local element typed n a typed_element # 関数内変数をローカル化
