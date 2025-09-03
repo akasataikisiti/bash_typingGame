@@ -2,6 +2,10 @@
 set -Eeuo pipefail # エラー即時終了・未定義変数エラー・パイプ失敗検出
 IFS=$'\n\t' # IFS を安全な設定に（スペースは区切らない）
 content=(herry pear banana grape peah apple) # 出題する単語の配列（各要素を分離）
+# テストやカスタム出題用に CONTENT 環境変数で上書き可能（スペース区切り）
+if [[ -n ${CONTENT-} ]]; then # CONTENT が設定されていれば
+  IFS=' ' read -r -a content <<< "$CONTENT" # スペースで分割して配列化
+fi
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
 trap 'printf "${ESC}[m\n"; clear' INT TERM EXIT # 異常終了時も色をリセットして画面を整える
 
