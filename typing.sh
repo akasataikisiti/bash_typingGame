@@ -6,6 +6,15 @@ content=(herry pear banana grape peah apple) # 出題する単語の配列（各
 if [[ -n ${CONTENT-} ]]; then # CONTENT が設定されていれば
   IFS=' ' read -r -a content <<< "$CONTENT" # スペースで分割して配列化
 fi
+
+# 単語リスト外部化: WORDS_FILE（未指定なら assets/words.txt）から1行1語で読み込み
+if [[ -z ${CONTENT-} ]]; then # CONTENT 指定がない場合のみファイル入力を有効化
+  WORDS_PATH=${WORDS_FILE-assets/words.txt}
+  if [[ -f "$WORDS_PATH" ]]; then
+    # 空行とコメント(#～)を除去し、CRLF を正規化
+    mapfile -t content < <(sed -e 's/\r$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$WORDS_PATH")
+  fi
+fi
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
 trap 'printf "${ESC}[m\n"; clear' INT TERM EXIT # 異常終了時も色をリセットして画面を整える
 

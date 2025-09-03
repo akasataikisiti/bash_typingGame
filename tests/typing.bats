@@ -19,3 +19,10 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "reads words from external file (WORDS_FILE)" {
+  run bash -lc '
+    tmp=$(mktemp)
+    printf "ab\ncd\n" > "$tmp"
+    WORDS_FILE="$tmp" bash typing.sh <<<"abcd"'
+  [ "$status" -eq 0 ]
+}
