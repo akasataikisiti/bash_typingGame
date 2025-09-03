@@ -29,6 +29,13 @@ typingGame(){ # 1単語分のタイピングゲームを実行する関数
       element="${element:1}" # 残り部分を先頭1文字削除
       printf "${ESC}[34m%s${ESC}[m" "$typed_element" # 入力済み部分を青で表示（改行なし）
       printf "${ESC}[33m%s${ESC}[m\n" "$element" # 残り部分を黄色で表示し改行、色リセット
+    else # ミスタイプ時のフィードバック
+      printf "\a" # ビープ音
+      clear # 画面をリフレッシュ
+      typed_element="${typed:0:n}" # 現在の入力済み部分を再描画
+      printf "${ESC}[34m%s${ESC}[m" "$typed_element"
+      printf "${ESC}[33m%s${ESC}[m\n" "$element"
+      printf "${ESC}[31m期待: %s${ESC}[m\n" "${element:0:1}" # 期待文字を赤で表示
     fi
   done # while ループ終了
 } # 関数終了
