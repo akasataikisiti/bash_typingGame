@@ -3,12 +3,28 @@ readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（�
 readonly SHOW_CURSOR="${ESC}[?25h" # カーソル表示
 readonly HIDE_CURSOR="${ESC}[?25l" # カーソル非表示
 
+# 非TTY環境（CI/Batsなど）でも安全に動作させるUIユーティリティ
+is_tty() { [[ -t 1 ]]; }
+ui_clear() { if is_tty; then clear || true; fi }
+ui_hide_cursor() { if is_tty; then printf "%s" "${HIDE_CURSOR}" || true; fi }
+ui_show_cursor() { if is_tty; then printf "%s" "${SHOW_CURSOR}" || true; fi }
+read_char() {
+  # 使用: read_char varname
+  local __var=$1 c
+  if [[ -t 0 ]]; then
+    read -r -s -n 1 c || return $?
+  else
+    read -r -n 1 c || return $?
+  fi
+  printf -v "$__var" '%s' "$c"
+}
+
 typing_play_word(){ # 1単語分のタイピングを処理する関数（内部用）
   local element typed n a typed_element expected_msg # 関数内変数をローカル化
   element="$1" # 残りの未入力部分（先頭から削っていく）
   typed="$element" # 元の完全な単語（入力済み部分計算用）
   n=0 # 正しく入力できた文字数のカウンタ
-  clear # 画面をクリア
+  ui_clear # 画面をクリア（非TTY時は無視）
   # 初期表示（3行確保: 入力行 / メッセージ / ステータス）
   typed_element=""
   expected_msg=""
@@ -21,7 +37,7 @@ typing_play_word(){ # 1単語分のタイピングを処理する関数（内部
     if [[ ${#element} -eq 0 ]]; then # 残り文字数が0なら
       break # ループを抜ける（単語入力完了）
     fi
-    read -r -s -n 1 a # 1文字を非表示(-s)で読み取り、変数aに格納
+    read_char a # 1文字を読み取り、変数aに格納（非TTY対応）
     if [[ "$a" == "${element:0:1}" ]]; then # 入力が先頭の期待文字と一致したら
       n=$((n + 1)) # 正打数をインクリメント
       TOTAL_CORRECT=$((TOTAL_CORRECT + 1)) # 総正打数
@@ -35,7 +51,7 @@ typing_play_word(){ # 1単語分のタイピングを処理する関数（内部
       expected_msg="期待: ${element:0:1}" # 期待文字を記録
     fi
     # カーソルを3行上に戻して3行を部分再描画（入力行/メッセージ/ステータス）
-    printf "${ESC}[3F" # 3行上へ
+    printf "${ESC}[3F" # 3行上へ（非TTYでも無害）
     printf "\r${ESC}[2K${ESC}[34m%s${ESC}[m${ESC}[33m%s${ESC}[m\n" "$typed_element" "$element"
     if [[ -n "$expected_msg" ]]; then
       printf "\r${ESC}[2K${ESC}[31m%s${ESC}[m\n" "$expected_msg"
@@ -146,7 +162,7 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
     fi
   fi
 
-  printf "${HIDE_CURSOR}" >/dev/null 2>&1 || true
+  ui_hide_cursor
 
   # メインループ
   local value
@@ -156,12 +172,12 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
       if [[ ${ABORT:-0} -eq 1 ]]; then break; fi
     }
     WORDS_DONE=$((WORDS_DONE + 1))
-    clear
+    ui_clear
     print_status
   done
 
   # 終了サマリ
-  printf "${SHOW_CURSOR}" || true
+  ui_show_cursor
   if [[ ${ABORT:-0} -eq 1 ]]; then
     printf "${ESC}[33m中断しました（Ctrl+C）${ESC}[m\n"
   else
