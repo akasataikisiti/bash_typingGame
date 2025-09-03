@@ -1,4 +1,4 @@
-.PHONY: run lint fmt fmt-check test
+.PHONY: run lint fmt fmt-check test test-docker hooks-install ci
 
 run:
 	@bash typing.sh
@@ -35,3 +35,16 @@ test:
 		echo "bats が見つかりません。インストールしてください。"; \
 	fi
 
+# Docker 上で Bats を実行
+test-docker:
+	@./scripts/test-docker.sh -r tests
+
+# Git フックを hooks/ に設定
+hooks-install:
+	@bash scripts/install-hooks.sh
+
+# CI まとめ実行（lint, fmt-check, test-docker）
+ci:
+	@$(MAKE) lint
+	@$(MAKE) fmt-check
+	@$(MAKE) test-docker
