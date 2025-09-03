@@ -27,10 +27,15 @@
 
 ## 開発
 - Lint: `make lint`（shellcheck）
-- Format: `make fmt` / `make fmt-check`（shfmt）
-- Test: `make test`（bats）
+- Format（任意）: `make fmt` / `make fmt-check`（shfmt）
+- Test（Docker 推奨）: `make test-docker` または `./scripts/test-docker.sh -r tests`
+- まとめ実行: `make ci`（lint → Docker+bats）
+
+フック（任意）
+- pre-push フック有効化: `make hooks-install`
+- push 前に lint と Docker テストを自動実行（失敗で push を中断）。
 
 ## CI とブランチ保護
 - バッジの `OWNER/REPO` を実リポジトリに置換してください。
-- GitHub Actions は push/PR 時に Lint/Format/Test を実行します。
+- GitHub Actions は push/PR 時に Lint（shellcheck）と Test（Docker+bats）を実行します。
 - ブランチ保護手順は `.github/BRANCH_PROTECTION.md` を参照。

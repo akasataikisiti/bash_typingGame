@@ -15,9 +15,9 @@
   - 実行確認: `bash typing.sh`
 
 2. Lint/Format/テスト基盤
-- chore: Makefile を追加 (run/lint/fmt/test)
-  - `make run`, `make lint`, `make fmt`, `make fmt-check`, `make test`
-- test: Bats を導入し最小テストを追加
+- chore: Makefile を追加 (run/lint/fmt/test-docker/ci)
+  - `make run`, `make lint`, `make fmt`, `make fmt-check`, `make test-docker`, `make ci`
+- test: Bats を導入し最小テストを追加（Docker の bats で実行）
   - `tests/typing.bats`（単語1つで成功）
 
 3. 安全設定と移植性
@@ -65,7 +65,7 @@
 13. ドキュメント/ガイド/CI
 - docs: README を更新（関数実行、オプション、環境変数、Make、CI）
 - docs: AGENTS.md（コーディング規約/テスト/PR）
-- ci: GitHub Actions（shellcheck/shfmt/bats）を追加
+- ci: GitHub Actions（shellcheck + Docker 上の bats）を追加
 - docs: BRANCH_PROTECTION 手順
 
 14. 仕上げ
@@ -76,7 +76,7 @@
 - 実行: `bash typing.sh` / `source typing.sh; typingGame`
 - 単語指定: `CONTENT="ab cd" bash typing.sh`
 - ファイル指定: `bash typing.sh -f assets/words.txt -c 5 -r`
-- Lint/Format/Test: `make lint && make fmt-check && make test`
+- Lint/Test: `make lint && make test-docker`（フォーマットは任意で `make fmt-check`）
 
 ## コミットメッセージ例（抜粋）
 - feat: 最小の typing.sh を追加（MVP）
@@ -98,4 +98,3 @@
 - `echo` ではなく `printf` を使用（`-e/-n` 依存を回避）
 - `read -r -s -n 1` の扱いに注意（TTYが必要、CIではパイプで代替）
 - 描画は ANSI 非対応端末を想定しすぎない（Linux/macOS を対象）
-

@@ -25,11 +25,11 @@
 - 端末制御: ANSI シーケンスを `printf` ラッパ関数に集約（`draw_typed`, `draw_remaining` など）。
 
 ## テスト/品質管理
-- Lint/Format: `shellcheck` と `shfmt` を導入。
-- テスト: Bats を使用。擬似 TTY で入力を再現しやすいように `script` を併用。
-  - 例: `script -q /dev/null bash -c 'printf "abc" | ./typing.sh'`
-- CI: GitHub Actions で `shellcheck`, `shfmt -d`, `bats` を実行。
-- Makefile: `run`, `lint`, `fmt`, `test` ターゲットを用意。
+- Lint/Format: `shellcheck` と（任意で）`shfmt` を導入。
+- テスト: Bats を使用。Docker の `bats/bats:latest` で実行（`scripts/test-docker.sh`）。
+  - 擬似 TTY が必要な検証は util-linux の `script` を併用。
+- CI: GitHub Actions で `shellcheck` と Docker 上の Bats を実行。
+- Makefile: `run`, `lint`, `fmt`, `test-docker`, `ci` ターゲットを用意。
 
 ## 参考スニペット
 ```bash
@@ -45,4 +45,3 @@ draw() {
   printf "${ESC}[34m%s${ESC}[m${ESC}[33m%s${ESC}[m\n" "$typed" "$remaining"
 }
 ```
-

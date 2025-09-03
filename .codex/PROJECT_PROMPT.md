@@ -11,8 +11,9 @@
 - `typing.sh`: 本体（関数 `typingGame` 入口、内部に `typing_play_word`）。
 - `assets/words.txt`: デフォルト単語リスト（1行1語）。
 - `tests/typing.bats`: Bats テスト。
-- `Makefile`: `run`, `lint`, `fmt`, `fmt-check`, `test`。
-- `.github/workflows/ci.yml`: shellcheck/shfmt/bats を実行する CI。
+- `scripts/test-docker.sh`: Docker の `bats/bats:latest` でテスト実行。
+- `Makefile`: `run`, `lint`, `fmt`, `fmt-check`, `test-docker`, `ci`。
+- `.github/workflows/ci.yml`: shellcheck と Docker 上の bats を実行する CI。
 - `README.md`: 使い方（関数/スクリプト、オプション、環境変数、開発手順）。
 - `AGENTS.md`: 簡潔な貢献ガイド（既存要件に準拠）。
 
@@ -36,10 +37,10 @@
 ## 開発便利ツール
 - Lint: `shellcheck typing.sh`
 - Format: `shfmt -i 2 -ci -w typing.sh`
-- Makefile に `run/lint/fmt/fmt-check/test` を用意。
-- CI: Ubuntu で apt で `shellcheck shfmt bats` を入れ、Make タスクを実行。
+- Makefile に `run/lint/fmt/fmt-check/test-docker/ci` を用意。
+- CI: Ubuntu で `shellcheck` を apt 導入、テストは Docker の `bats/bats:latest` を使用。
 
 ## 受け入れ基準
-- `make fmt-check && make lint && make test` がローカルで成功。
+- `make lint && make test-docker` がローカルで成功。
 - 直接実行と関数実行で等価に動作。Ctrl+C 中断時にサマリと「中断しました」表示。
 - README と AGENTS に手順と規約が簡潔に記載。
