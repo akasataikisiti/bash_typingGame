@@ -1,36 +1,43 @@
-# リポジトリガイドライン
+# Repository Guidelines
 
 ## プロジェクト構成とモジュール整理
 - ルート: `typing.sh` — タイピングゲームのメイン Bash スクリプト。
-- `tests/` — 任意。Bats テストを配置（例: `tests/typing.bats`）。
-- `assets/` — 任意。単語リストやデータファイル。
-- 隠しツール: `.git/`, `.codex/`（通常は変更不要）。
+- `tests/` — Bats テスト（例: `tests/typing.bats`）。
+- `assets/` — 任意の単語リストやデータファイル。
+- 隠しツール: `.git/`, `.codex/` — 通常は変更不要。
 
 ## ビルド・テスト・開発コマンド
 - ローカル実行: `bash typing.sh` または `chmod +x typing.sh && ./typing.sh`。
-- Lint: `shellcheck typing.sh`（ShellCheck をローカルにインストール）。
-- フォーマット（任意）: `shfmt -i 2 -ci -w typing.sh`（インデント2スペース）。
-- テスト（存在する場合）: `bats tests` または `bats tests/typing.bats`。
+- Lint: `shellcheck typing.sh` — Bash の静的解析。
+- フォーマット（任意）: `shfmt -i 2 -ci -w typing.sh` — インデント2スペース。
+- テスト（Docker 推奨）:
+  - ワンショット: `./scripts/test-docker.sh`。
+  - 単一ファイル: `./scripts/test-docker.sh tests/typing.bats`。
+  - オプション付与: `./scripts/test-docker.sh -r tests`（Bats はオプション→パスの順）。
+  - Compose: `docker compose run --rm test`。
+  - 直接実行（参考）: `docker run --rm -v "$PWD":/work -w /work bats/bats:latest -r tests`。
 
 ## コーディングスタイルと命名規約
-- Bash 4+ を対象。インデントは2スペース、タブは使用しない。
-- 安全設定: スクリプト先頭に `set -Eeuo pipefail` と `IFS=$'\n\t'`。
-- 関数: `lower_snake_case()`。定数: `UPPER_CASE`（例: `ESC`）。
-- 条件は `[[ ... ]]` を使用。展開は引用。関数内変数は `local`。
-- 定数には `readonly` を推奨。不要なグローバルを避ける。
+- 対象 Bash 4+、インデント2スペース、タブは使用しない。
+- スクリプト先頭: `set -Eeuo pipefail`、`IFS=$'\n\t'` を設定。
+- 関数: `lower_snake_case()`、定数: `UPPER_CASE`（`readonly` 推奨）。
+- 条件は `[[ ... ]]` を使用、展開は必ず引用。
+- 関数内変数は `local` を使い、不要なグローバルを避ける。
+- 依存は最小限にし、POSIX フレンドリなユーティリティを優先。
 
 ## テスト方針
-- フレームワーク: Bats 推奨。`tests/*.bats` に配置。
-- 命名: スクリプト名に対応（例: `tests/typing.bats`）。
-- カバレッジ: 主要フローを網羅（正しい入力、誤入力、完了判定）。
-- CI 推奨: `shellcheck`、`shfmt -d`、`bats` を PR ごとに実行。
+- フレームワーク: Bats（`tests/*.bats`）。
+- 命名: スクリプト名に対応（例: `typing.bats`）。
+- カバレッジ: 正常入力、誤タイプ、空入力、完了判定、可能ならタイミング。
+- 実行: 提出前に `bats tests` を実行し、終了コードとメッセージを検証。
 
 ## コミットとプルリクエスト
-- コミット: Conventional Commits を推奨（例: `feat: タイプ済み接頭辞に色付け`, `fix: 空入力を処理`）。
-- 1コミット=1論理変更。小さく保つ。
-- PR: 概要、目的、テスト手順（実行したコマンド）、UI変更は端末出力/スクショ、関連 Issue のリンクを含める。
+- コミット: Conventional Commits（例: `feat: タイプ済み接頭辞をハイライト`, `fix: 空入力を処理`）。
+- スコープ: 1コミット=1論理変更。
+- PR: 概要、目的、テスト手順（実行コマンド）、UI変更は端末出力/スクショ、関連 Issue を添付。
+- CI 推奨: `shellcheck`、`shfmt -d`、`bats` を実行。
 
 ## セキュリティと設定のヒント
-- 秘密情報はコミットしない。このスクリプトはローカル入力のみを扱う。
-- 端末互換性: ANSI/VT100 シーケンスを前提。Linux/macOS で確認。
-- 依存は最小限にし、移植性の高い POSIX フレンドリなユーティリティを優先。
+- 秘密情報はコミットしない。本スクリプトはローカル入力のみを扱う。
+- ANSI/VT100 端末を想定。Linux/macOS で確認。
+- 移植性を重視し、標準的なシェルツールを優先。
