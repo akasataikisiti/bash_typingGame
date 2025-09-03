@@ -1,5 +1,5 @@
 #!/bin/bash # シバン: Bash で実行することを指定
-content=("herry pear banana grape peah apple") # 出題する単語（スペース区切り）の配列
+content=(herry pear banana grape peah apple) # 出題する単語の配列（各要素を分離）
 ESC=$(printf '\033') # ANSI エスケープシーケンスの開始コード（色付け用）
 
 typingGame(){ # 1単語分のタイピングゲームを実行する関数
