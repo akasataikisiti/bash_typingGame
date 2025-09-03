@@ -16,17 +16,24 @@ if [[ -z ${CONTENT-} ]]; then # CONTENT 指定がない場合のみファイル�
   fi
 fi
 readonly ESC=$'\033' # ANSI エスケープシーケンスの開始コード（色付け用）
-# EXIT 時は色だけリセット（画面はクリアしない）。INT/TERM は色リセット+画面クリア。
-trap 'printf "${ESC}[m\n"' EXIT
-trap 'printf "${ESC}[m\n"; clear' INT TERM
+readonly SHOW_CURSOR="${ESC}[?25h" # カーソル表示
+readonly HIDE_CURSOR="${ESC}[?25l" # カーソル非表示
+# EXIT 時は色とカーソルのみ復帰（画面はクリアしない）。INT/TERM は色/カーソル復帰後に画面クリア。
+trap 'printf "\033[m\033[?25h\n"' EXIT
+trap 'printf "\033[m\033[?25h\n"; clear' INT TERM
 
 typingGame(){ # 1単語分のタイピングゲームを実行する関数
-  local element typed n a typed_element # 関数内変数をローカル化
+  local element typed n a typed_element expected_msg # 関数内変数をローカル化
   element="$1" # 残りの未入力部分（先頭から削っていく）
   typed="$element" # 元の完全な単語（入力済み部分計算用）
   n=0 # 正しく入力できた文字数のカウンタ
   clear # 画面をクリア
-  printf "${ESC}[33m%s${ESC}[m\n" "$element" # 残りの単語を黄色で表示
+  # 初期表示（3行確保: 入力行 / メッセージ / ステータス）
+  typed_element=""
+  expected_msg=""
+  printf "\r${ESC}[2K${ESC}[34m%s${ESC}[m${ESC}[33m%s${ESC}[m\n" "$typed_element" "$element"
+  printf "\r${ESC}[2K\n" # メッセージ行を空で描画
+  print_status # ステータス行
 
   while true; do # 入力が終わるまで繰り返す無限ループ
     if [[ ${#element} -eq 0 ]]; then # 残り文字数が0なら
@@ -34,25 +41,26 @@ typingGame(){ # 1単語分のタイピングゲームを実行する関数
     fi
     read -r -s -n 1 a # 1文字を非表示(-s)で読み取り、変数aに格納
     if [[ "$a" == "${element:0:1}" ]]; then # 入力が先頭の期待文字と一致したら
-      clear # 画面をクリア
       n=$((n + 1)) # 正打数をインクリメント
       TOTAL_CORRECT=$((TOTAL_CORRECT + 1)) # 総正打数
       KEYSTROKES=$((KEYSTROKES + 1)) # 総キータイプ数
       typed_element="${typed:0:n}" # 入力済み部分（先頭n文字）を取得
       element="${element:1}" # 残り部分を先頭1文字削除
-      printf "${ESC}[34m%s${ESC}[m" "$typed_element" # 入力済み部分を青で表示（改行なし）
-      printf "${ESC}[33m%s${ESC}[m\n" "$element" # 残り部分を黄色で表示し改行、色リセット
-      print_status # 進捗表示
+      expected_msg="" # ミスタイプメッセージを消去
     else # ミスタイプ時のフィードバック
       printf "\a" # ビープ音
       KEYSTROKES=$((KEYSTROKES + 1)) # 総キータイプ数
-      clear # 画面をリフレッシュ
-      typed_element="${typed:0:n}" # 現在の入力済み部分を再描画
-      printf "${ESC}[34m%s${ESC}[m" "$typed_element"
-      printf "${ESC}[33m%s${ESC}[m\n" "$element"
-      printf "${ESC}[31m期待: %s${ESC}[m\n" "${element:0:1}" # 期待文字を赤で表示
-      print_status # 進捗表示
+      expected_msg="期待: ${element:0:1}" # 期待文字を記録
     fi
+    # カーソルを3行上に戻して3行を部分再描画（入力行/メッセージ/ステータス）
+    printf "${ESC}[3F" # 3行上へ
+    printf "\r${ESC}[2K${ESC}[34m%s${ESC}[m${ESC}[33m%s${ESC}[m\n" "$typed_element" "$element"
+    if [[ -n "$expected_msg" ]]; then
+      printf "\r${ESC}[2K${ESC}[31m%s${ESC}[m\n" "$expected_msg"
+    else
+      printf "\r${ESC}[2K\n"
+    fi
+    print_status # 進捗表示
   done # while ループ終了
 } # 関数終了
 
@@ -81,7 +89,7 @@ print_status(){
     # (correct_chars/5) / (elapsed/60) = correct_chars * 12 / elapsed
     wpm=$(( TOTAL_CORRECT * 12 / elapsed ))
   fi
-  printf "${ESC}[36m単語: %d/%d | 文字: %d/%d | 打鍵: %d | 正確性: %d%% | 経過: %ds | WPM: %d${ESC}[m\n" \
+  printf "\r${ESC}[2K${ESC}[36m単語: %d/%d | 文字: %d/%d | 打鍵: %d | 正確性: %d%% | 経過: %ds | WPM: %d${ESC}[m\n" \
     "$WORDS_DONE" "$WORD_COUNT" "$TOTAL_CORRECT" "$TOTAL_TARGET" "$KEYSTROKES" "$acc" "$elapsed" "$wpm"
 }
 
@@ -101,5 +109,7 @@ for value in ${content[@]}; do # 配列内の各単語に対してゲームを�
 done # ループ終了
 
 # 終了サマリ
+printf "${HIDE_CURSOR}" >/dev/null 2>&1 # 念のため非表示状態に（既定動作）
+printf "${SHOW_CURSOR}" # 終了時にカーソルを表示
 printf "${ESC}[32m完了しました！${ESC}[m\n"
 print_status
