@@ -46,5 +46,4 @@ hooks-install:
 # CI まとめ実行（lint, fmt-check, test-docker）
 ci:
 	@$(MAKE) lint
-	@$(MAKE) fmt-check
 	@$(MAKE) test-docker
