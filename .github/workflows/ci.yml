@@ -26,12 +26,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install shfmt
+      - name: Check formatting with shfmt (Docker)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y shfmt
-      - name: Check formatting (shfmt -d)
-        run: shfmt -i 2 -ci -d typing.sh
+          docker run --rm -v "${{ github.workspace }}":/work -w /work mvdan/shfmt -i 2 -ci -d typing.sh
 
   tests:
     name: tests
@@ -43,4 +40,3 @@ jobs:
         run: |
           chmod +x scripts/test-docker.sh
           ./scripts/test-docker.sh -r tests
-
