@@ -26,14 +26,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: ShellCheck
-        uses: ludeeus/action-shellcheck@v2
-        with:
-          scandir: .
-          severity: style
+      - name: Install shellcheck, shfmt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck shfmt
 
-      - name: Setup shfmt
-        uses: mfinelli/setup-shfmt@v2
+      - name: Lint (shellcheck)
+        run: shellcheck typing.sh
 
       - name: Format check (shfmt)
         run: shfmt -i 2 -ci -d typing.sh
