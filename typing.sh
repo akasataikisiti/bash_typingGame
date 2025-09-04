@@ -93,8 +93,11 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   #   -f: 読み込む単語ファイル（1行1語）。CONTENT より優先。
   #   -c: 出題数（数値）。指定がなければ全件。
   #   -r: 出題順をシャッフル。
-  # 以前の IFS を退避
+  # 以前の IFS とシェルオプションを退避（source 時に親シェルへ影響させない）
   local __prev_ifs="$IFS"
+  # 現在の set -o 状態を復元可能な形式で保存
+  local __old_set_opts
+  __old_set_opts="$(set +o)"
 
   # 引数パース
   local opt file_override="" questions_limit="" cli_shuffle=0
@@ -110,7 +113,7 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   done
   shift $((OPTIND-1))
 
-  # 安全設定（関数作用域内に限定）
+  # 安全設定（関数終了時に元へ戻す）
   set -Eeuo pipefail
   IFS=$'\n\t'
 
@@ -192,6 +195,8 @@ typingGame(){ # ゲーム全体を実行する関数（この関数を呼び出�
   # トラップ/シェル状態の復元
   trap - EXIT INT TERM
   IFS="$__prev_ifs"
+  # set オプションを元に戻す
+  eval "$__old_set_opts"
 } # typingGame 終了
 
 # スクリプトとして直接実行された場合のみゲームを起動（source された場合は関数定義のみ）
