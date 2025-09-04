@@ -49,7 +49,7 @@
 ## CI とブランチ保護
 - バッジの `OWNER/REPO` を実リポジトリに置換してください。
 - GitHub Actions は push/PR 時に Lint（shellcheck）と Test（Docker+bats）を実行します。
-- ブランチ保護手順は `.github/BRANCH_PROTECTION.md` を参照。
+- ブランチ保護と CI の詳細は `.codex/branch-protection-and-ci.md` を参照。
 
 ## トラブルシューティング（Docker）
 - `docker` に接続できない: `docker ps` が sudo なしで実行できるか、`id -nG` に `docker` が含まれるか、`ls -l /var/run/docker.sock` が `root:docker` で `660` か確認
