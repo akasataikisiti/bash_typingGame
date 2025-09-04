@@ -46,4 +46,10 @@ hooks-install:
 # CI まとめ実行（lint, fmt-check, test-docker）
 ci:
 	@$(MAKE) lint
-	@$(MAKE) test-docker
+	@$(MAKE) fmt-check
+	@if command -v bats >/dev/null 2>&1; then \
+		bats -r tests; \
+	else \
+		echo "bats が見つかりません。Docker で実行します。"; \
+		./scripts/test-docker.sh -r tests; \
+	fi

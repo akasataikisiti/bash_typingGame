@@ -1,55 +1,65 @@
-# GitHub Actions ワークフロー運用ガイド
+# GitHub Actions ワークフロー運用ガイド（最新版）
 
 ## 概要
 - ワークフロー: `.github/workflows/ci.yml`
-- トリガー: `push`、`pull_request`
-- 実行内容:
-  - Lint: `shellcheck` で `typing.sh` を静的解析
-  - Format check: `shfmt -d` でフォーマット差分を検出
-  - Test: Docker 上の `bats/bats:latest` で `tests/*.bats` を実行
+- トリガー: `push`, `pull_request`, `workflow_dispatch`
+- 無視パス: `**.md`, `.codex/**`
+- 権限: `permissions.contents: read`
+- 競合制御: `concurrency` により同一ブランチの古い実行を自動キャンセル
+
+## ジョブ構成
+1) Lint（`lint`）
+- `ludeeus/action-shellcheck@v2` による ShellCheck 実行
+- `mfinelli/setup-shfmt@v2` で `shfmt` セットアップし、`shfmt -i 2 -ci -d typing.sh` を実行
+- タイムアウト: 5 分
+
+2) Test（`test`）
+- Ubuntu ランナーに `bats` を apt で導入
+- `bats --print-output-on-failure -r tests` を直接実行（Docker 非依存）
+- タイムアウト: 15 分
+- 依存関係: `needs: lint`
 
 ## 実行の流れ（CI）
-1. コードをチェックアウト
-2. `shellcheck` と `shfmt` を apt で導入
-3. テストはローカルに Bats をインストールせず、`./scripts/test-docker.sh -r tests` を実行
-   - イメージ: `bats/bats:latest`（Entrypoint が `bats`）
+1. コードチェックアウト（`actions/checkout@v4`）
+2. Lint（ShellCheck + shfmt のフォーマット差分チェック）
+3. Test（Bats を直接実行し、失敗時は出力をそのまま表示）
 
-## ローカルでの再現手順
-- すべてのテスト: `./scripts/test-docker.sh`
-- 単一ファイル: `./scripts/test-docker.sh tests/typing.bats`
-- ディレクトリ（再帰）: `./scripts/test-docker.sh -r tests`
-- 直接 Docker 例: `docker run --rm -v "$PWD":/work -w /work bats/bats:latest -r tests`
-- Compose 例: `docker compose run --rm test`
+## ローカル再現手順
+- Lint: `make lint`
+- Format check: `make fmt-check`
+- Test（直接）: `bats -r tests`
+- まとめ実行: `make ci`（bats がなければ `./scripts/test-docker.sh -r tests` にフォールバック）
 
-ヒント
-- Bats のオプションは「オプション → パス」の順。スクリプトは順序を補正しますが、推奨順で渡してください。
-- `BATS_IMAGE` 環境変数で使用するイメージを上書き可能。
- - Docker デーモンに接続できない場合、ローカルに `bats` があれば自動フォールバックします。
+備考
+- Docker に依存しないため、CI の安定性が向上。ローカルでも `bats` を入れるだけで再現可能。
+- 必要に応じて `./scripts/test-docker.sh` を利用可能（開発者の環境次第）。
 
 ## 運用ルール
 - テストは `tests/*.bats` に配置し、スクリプト名に対応する命名を推奨（例: `typing.bats`）。
-- 端末依存の UI は非TTY 環境で落ちないよう実装（`typing.sh` に UI ラッパーあり）。
-- PR では次を確認:
-  - `shellcheck` 警告なし
-  - `shfmt -d` で差分なし（`shfmt -i 2 -ci -w typing.sh` で整形）
-  - `./scripts/test-docker.sh -r tests` が成功
-  - UI 変更時は端末出力を PR に添付
+- 端末依存の UI は非TTY 環境で落ちないよう実装済み（`typing.sh` の UI ラッパー）。
+- PR チェックポイント:
+  - ShellCheck 警告なし
+  - shfmt 差分なし
+  - Bats の全テスト成功（`bats -r tests`）
+  - UI 変更時は端末出力例を PR に添付
 
 ## よくあるトラブルと対処
-- 「/work/bats がない」: 余分な `bats` をコマンドに重ねていないか確認（イメージに Entrypoint 済み）。
-- 「unbound variable」: `set -u` 下で未初期化の配列が原因。`scripts/test-docker.sh` は初期化済み。
-- Docker 未インストール: ローカルは Docker 必須。CI ランナーは対応済み。
+- ShellCheck アクションの失敗: ローカルで `shellcheck typing.sh` を実行し同様の警告を解消。
+- shfmt 差分あり: `shfmt -i 2 -ci -w typing.sh` で整形して再コミット。
+- Bats の失敗: `bats --print-output-on-failure -r tests` をローカルで実行し、失敗ケースの出力を確認。
+- ネットワーク輻輳での apt 失敗: 再実行で解消することが多い。恒常的ならキャッシュ/ミラーの検討。
 
-## 変更・拡張
-- テストの並列化やカバレッジ出力が必要な場合は、別ステップを追加してください。
-- 追加の静的解析（例: `shellharden`）もステップ追加で統合可能です。
+## 変更・拡張の指針
+- Bash バージョン行列（例: 4.4/5.2）の追加で互換性検証を強化。
+- 失敗時ログのアーティファクト化（`actions/upload-artifact`）。
+- 追加の静的解析（例: `shellharden`）の組み込み。
 
 ## pre-push フックの活用
-- 目的: push 直前にローカルで lint とテストを実行し、CI の失敗を未然に防ぐ。
+- 目的: push 前にローカルで lint とテストを実行し、CI の失敗を未然に防ぐ。
 - 導入: `bash scripts/install-hooks.sh`（`core.hooksPath` を `hooks/` に設定）
-- 実行タイミング: `git push` のたびに自動実行。
+- 実行: `git push` のたびに自動実行。
 - 挙動:
   - `shellcheck` があれば実行し、エラーで push を中断。
-  - `docker` があれば `./scripts/test-docker.sh -r tests` を実行し、テスト失敗で push を中断。
-  - `shfmt -d` は情報表示のみ（差分があっても push は継続）。
+  - `bats` があれば `bats -r tests` を実行（なければ Docker フォールバック）。
+  - `shfmt -d` は差分の有無を表示。
 - 一時スキップ: `SKIP_PRE_PUSH=1 git push`
