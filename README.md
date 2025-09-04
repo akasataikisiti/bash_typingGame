@@ -9,6 +9,9 @@
 - 関数実行: `source ./typing.sh` の後に `typingGame [OPTIONS]`
 - 中断: 実行中に `Ctrl+C`（中断メッセージとサマリを表示）
 
+注意（source 実行の安全性）
+- `typingGame` は関数内で `set -Eeuo pipefail` を一時的に有効化しますが、終了時に元のシェルオプション（`set +o` の退避値）・`IFS`・`trap` を復元します。`source` 実行後でも、親シェルの設定は変わりません。
+
 ## オプション（typingGame / スクリプト共通）
 - `-f FILE`: 単語ファイル（1行1語）を使用（`CONTENT` より優先）
 - `-c NUM`: 出題数を制限（正の整数）
@@ -21,6 +24,9 @@
 - `WORDS_FILE=assets/words.txt`
 - `SHUFFLE=1`
 
+備考
+- `SHUFFLE=1` または `-r` 指定時、`shuf` が見つからない環境では順序は維持されます（そのまま実行可能）。
+
 ## 例
 - 単語ファイルから10問をシャッフル: `bash typing.sh -f assets/words.txt -c 10 -r`
 - 関数で5問だけ: `source ./typing.sh; CONTENT="foo bar baz qux quux" typingGame -c 5`
@@ -31,6 +37,11 @@
 - Test（Docker 推奨）: `make test-docker` または `./scripts/test-docker.sh -r tests`
 - まとめ実行: `make ci`（lint → Docker+bats）
 
+テストの詳細
+- ローカルで直接: `bats -r tests`（Bats を apt などで導入）
+- 追加テスト観点の要約は `.codex/TESTS.md` を参照
+- 非TTY環境（CIなど）でも安全に動作するよう、カーソル表示/非表示などの制御はTTYでのみ有効化されます
+
 フック（任意）
 - pre-push フック有効化: `make hooks-install`
 - push 前に lint と Docker テストを自動実行（失敗で push を中断）。
@@ -39,3 +50,12 @@
 - バッジの `OWNER/REPO` を実リポジトリに置換してください。
 - GitHub Actions は push/PR 時に Lint（shellcheck）と Test（Docker+bats）を実行します。
 - ブランチ保護手順は `.github/BRANCH_PROTECTION.md` を参照。
+
+## トラブルシューティング（Docker）
+- `docker` に接続できない: `docker ps` が sudo なしで実行できるか、`id -nG` に `docker` が含まれるか、`ls -l /var/run/docker.sock` が `root:docker` で `660` か確認
+- `DOCKER_HOST` が誤設定されていないか確認（通常は未設定）
+- rootless の場合は `systemctl --user status docker` と `DOCKER_HOST=unix:///run/user/$UID/docker.sock`
+- 代替: ローカルに Bats を導入して `bats -r tests` を実行
+
+関連
+- Issue: README 更新の提案（#1）
